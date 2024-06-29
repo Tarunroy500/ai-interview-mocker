@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { chatSession } from "@/utils/GeminiAiModal";
 import { LoaderCircle } from "lucide-react";
+import { MockInterview } from "@/utils/schema";
+// import { json } from "drizzle-orm/mysql-core";
+import { useUser } from "@clerk/nextjs";
+import moment from "moment";
+import { db } from "@/utils/db";
+import { useRouter } from "next/navigation";
 
 function AddNewInterview() {
   const [openDialog, setOpenDialog] = useState(false);
@@ -20,6 +27,9 @@ function AddNewInterview() {
   const [jobExperience, setJobExperience] = useState();
   const [jobDescription, setJobDescription] = useState();
   const [loading, setLoading] = useState(false);
+  const [jsonResponse, setJsonResponse] = useState([]);
+  const router = useRouter();
+  const { user } = useUser();
   const onSubmit = async (e) => {
     setLoading(true);
     e.preventDefault();
@@ -30,7 +40,32 @@ function AddNewInterview() {
       .text()
       .replace("```json", "")
       .replace("```", "");
-    console.log(MockJsonResp);
+    // console.log(JSON.parse(MockJsonResp));
+    // console.log(MockJsonResp);
+    setJsonResponse(MockJsonResp);
+
+    if (MockJsonResp) {
+      const res = await db
+        .insert(MockInterview)
+        .values({
+          mockId: uuidv4(),
+          jsonMockResp: MockJsonResp,
+          jobPosition: jobPosition,
+          jobExperience: jobExperience,
+          jobDescription: jobDescription,
+          createdBy: user?.primaryEmailAddress?.emailAddress,
+          createdAt: moment().format("DD-MM-YYYY"),
+        })
+        .returning({ mockId: MockInterview.mockId });
+      // console.log(res);
+      if(res){
+        setOpenDialog(false)
+        router.push(`/dashboard/interview/${res[0]?.mockId}`) 
+      }
+    } else {
+      console.log("Error in generating response");
+    }
+
     setLoading(false);
   };
   return (
